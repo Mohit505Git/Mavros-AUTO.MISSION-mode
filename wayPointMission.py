@@ -34,7 +34,7 @@ class Modes:
         rospy.wait_for_service('mavros/mission/push')
         try:
             wpPushService = rospy.ServiceProxy('mavros/mission/push', WaypointPush,persistent=True)
-            wpPushService(start_index=0,waypoints=wps)
+            wpPushService(start_index=0,waypoints=wps)#start_index = the index at which we want the mission to start
             print "Waypoint Pushed"
         except rospy.ServiceException, e:
             print "Service takeoff call failed: %s"%e
@@ -110,11 +110,11 @@ def main():
     md.wpPull(0)
     rospy.Subscriber("/mavros/state",State, stateMt.stateCb)
 
-
+    # Arming the drone
     while not stateMt.state.armed:
         md.setArm()
         rate.sleep()
-
+    # Switching the state to auto mode
     while not stateMt.state.mode=="AUTO.MISSION":
         md.auto_set_mode()
         rate.sleep()

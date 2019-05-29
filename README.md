@@ -26,13 +26,12 @@ user@Desktop:~/yourDir$ python wayPointMission.py
 ```
 wpPushService(start_index=0,waypoints=wps)#start_index = the index at which we want the mission to start
 ```
-
-## Change waypoints from here.
+Change waypoints from here.
 
 ```
 w = wayp0.setWaypoints(3,84,True,True,0.0,0.0,0.0,float('nan'),47.397713,8.547605,50)
 ```
-## Similar implimentation can be found at (https://gist.github.com/shakthi-prashanth-m/cb70406b8786b80a17b520cce663f3b8)
+###Similar implimentation can be found at (https://gist.github.com/shakthi-prashanth-m/cb70406b8786b80a17b520cce663f3b8)
 ## Authors
 
 * **Mohit Singh**

@@ -30,17 +30,25 @@ class Modes:
         except rospy.ServiceException, e:
             print "Service takeoff call failed: %s"%e
 
-    def wpPush(self,wps):
+    def wpPush(self,index,wps):
         rospy.wait_for_service('mavros/mission/push')
         try:
             wpPushService = rospy.ServiceProxy('mavros/mission/push', WaypointPush,persistent=True)
             wpPushService(start_index=0,waypoints=wps)
+            print "Waypoint Pushed"
         except rospy.ServiceException, e:
             print "Service takeoff call failed: %s"%e
+    def wpPull(self,wps):
+        rospy.wait_for_service('mavros/mission/pull')
+        try:
+            wpPullService = rospy.ServiceProxy('mavros/mission/pull', WaypointPull,persistent=True)
+            print wpPullService().wp_received
 
+            print "Waypoint Pulled"
+        except rospy.ServiceException, e:
+            print "Service Puling call failed: %s"%e
 
-class wpMissionCnt:
-    
+class stateMoniter:
     def __init__(self):
         self.state = State()
         # Instantiate a setpoints message
@@ -48,41 +56,28 @@ class wpMissionCnt:
 
         # set the flag to use position setpoints and yaw angle
         self.sp.type_mask = int('010111111000', 2)
-        # LOCAL_NED
-        self.sp.coordinate_frame = 1
-
-        self.wp = Waypoint()
-
-
+        
     def stateCb(self, msg):
         self.state = msg
 
-    def setWaypoints1(self):
-        self.wp.frame ="FRAME_LOCAL_NED"
-        self.wp.command = "NAV_TAKEOFF"
-        self.wp.is_current= True
-        self.wp.autocontinue = True
-        # self.wp.param1=
-        # self.wp.param2=
-        # self.wp.param3=
-        # self.wp.param4=
-        self.wp.x_lat= 20
-        self.wp.y_long= 20 
-        self.wp.z_alt= 3
-        return self.wp
+class wpMissionCnt:
 
-    def setWaypoints2(self):
-        self.wp.frame ="FRAME_LOCAL_NED"
-        self.wp.command = "NAV_RETURN_TO_LAUNCH"
-        self.wp.is_current= False
-        self.wp.autocontinue = True
-        # self.wp.param1=
-        # self.wp.param2=
-        # self.wp.param3=
-        # self.wp.param4=
-        self.wp.x_lat= 0
-        self.wp.y_long= 0 
-        self.wp.z_alt= 0
+    def __init__(self):
+        self.wp =Waypoint()
+        
+    def setWaypoints(self,frame,command,is_current,autocontinue,param1,param2,param3,param4,x_lat,y_long,z_alt):
+        self.wp.frame =frame #  FRAME_GLOBAL_REL_ALT = 3 for more visit http://docs.ros.org/api/mavros_msgs/html/msg/Waypoint.html
+        self.wp.command = command '''VTOL TAKEOFF = 84,NAV_WAYPOINT = 16, TAKE_OFF=22 for checking out other parameters go to https://github.com/mavlink/mavros/blob/master/mavros_msgs/msg/CommandCode.msg'''
+        self.wp.is_current= is_current
+        self.wp.autocontinue = autocontinue # enable taking and following upcoming waypoints automatically 
+        self.wp.param1=param1 # no idea what these are for but the script will work so go ahead
+        self.wp.param2=param2
+        self.wp.param3=param3
+        self.wp.param4=param4
+        self.wp.x_lat= x_lat 
+        self.wp.y_long=y_long
+        self.wp.z_alt= z_alt #relative altitude.
+
         return self.wp
 
 
@@ -90,21 +85,42 @@ def main():
     rospy.init_node('waypointMission', anonymous=True)
     rate = rospy.Rate(20.0)
 
+    stateMt = stateMoniter()
     md = Modes()
-    wayp = wpMissionCnt()
-    wps = []
-    wps.append(wayp.setWaypoints1())
-    # wps.append(wayp.setWaypoints2())
-    md.wpPush(wps)
-    rospy.Subscriber("/mavros/state",State, wayp.stateCb)
+    
+    wayp0 = wpMissionCnt()
+    wayp1 = wpMissionCnt()
+    wayp2 = wpMissionCnt()
+    wayp3 = wpMissionCnt()
+    
+    wps = [] #List to story waypoints
+    
+    w = wayp0.setWaypoints(3,84,True,True,0.0,0.0,0.0,float('nan'),47.397713,8.547605,50)
+    wps.append(w)
+
+    w = wayp1.setWaypoints(3,16,False,True,0.0,0.0,0.0,float('nan'),47.398621,8.547745,50)
+    wps.append(w)
+
+    w = wayp2.setWaypoints(3,16,False,True,0.0,0.0,0.0,float('nan'),47.399151,8.545320,50)
+    wps.append(w)
+
+    print wps
+    md.wpPush(0,wps)
+
+    md.wpPull(0)
+    rospy.Subscriber("/mavros/state",State, stateMt.stateCb)
 
 
-    while not wayp.state.armed:
+    while not stateMt.state.armed:
         md.setArm()
         rate.sleep()
-    md.auto_set_mode()
 
-    rospy.spin()
+    while not stateMt.state.mode=="AUTO.MISSION":
+        md.auto_set_mode()
+        rate.sleep()
+        print "AUTO.MISSION"
+
+    # rospy.spin()
 
 
 if __name__ == '__main__':
